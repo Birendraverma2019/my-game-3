@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cyber Runner - High Graphics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #0a0a12; text-align: center; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; color: white; }
+        canvas { display: block; margin: 20px auto; border-radius: 12px; box-shadow: 0 0 30px rgba(0, 242, 254, 0.3); max-width: 95%; }
+        h1 { font-size: 24px; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 2px; color: #00f2fe; text-shadow: 0 0 10px #00f2fe; }
+        p { font-size: 14px; margin: 0; color: #8a8a9e; }
+    </style>
+</head>
+<body>
+    <h1>CYBER RUNNER</h1>
+    <p>Tap anywhere to Jump. Smooth 60 FPS.</p>
+    <canvas id="gameCanvas" width="800" height="300"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let score = 0;
+        let gameActive = true;
+        let speed = 6;
+
+        // Player with Neon Trail
+        let player = { x: 80, y: 220, w: 35, h: 35, dy: 0, jumpPower: -12, gravity: 0.6, grounded: false };
+        
+        // Obstacles & Particles
+        let obstacles = [];
+        let particles = [];
+
+        // Creating Beautiful Neon Gradients
+        const playerGrad = ctx.createLinearGradient(0, 0, 800, 0);
+        playerGrad.addColorStop(0, '#00f2fe');
+        playerGrad.addColorStop(1, '#4facfe');
+
+        const obsGrad = ctx.createLinearGradient(0, 0, 0, 300);
+        obsGrad.addColorStop(0, '#ff0844');
+        obsGrad.addColorStop(1, '#ffb199');
+
+        // Particle Effect Generator (फूटने वाले शानदार इफेक्ट्स के लिए)
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    size: Math.random() * 4 + 2,
+                    alpha: 1
+                });
+            }
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            // Physics (स्मूथ जंप के लिए)
+            player.dy += player.gravity;
+            player.y += player.dy;
+            if (player.y >= 220) {
+                player.y = 220;
+                player.dy = 0;
+                player.grounded = true;
+            }
+
+            // Speed increment over time
+            speed += 0.002;
+
+            // Spawn Obstacles
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < 800 - (Math.random() * 300 + 250)) {
+                let height = Math.random() * 35 + 25;
+                obstacles.push({ x: 800, y: 265 - height, w: 25, h: height });
+            }
+
+            // Obstacle Movement & Collision
+            obstacles.forEach((obs, index) => {
+                obs.x -= speed;
+                if (obs.x + obs.w < 0) {
+                    obstacles.splice(index, 1);
+                    score += 10;
+                }
+
+                // Smooth Collision Box Check
+                if (player.x < obs.x + obs.w && player.x + player.w > obs.x &&
+                    player.y < obs.y + obs.h && player.y + player.h > obs.y) {
+                    gameActive = false;
+                    createParticles(player.x + 17, player.y + 17, '#ff0844');
+                    setTimeout(() => { alert("💥 CRASHED! Score: " + score); location.reload(); }, 100);
+                }
+            });
+
+            // Update Particles
+            particles.forEach((p, index) => {
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.02;
+                if (p.alpha <= 0) particles.splice(index, 1);
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background Grid (साइबरपंक लुक के लिए)
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+
+            // Draw Ground Neon Line
+            ctx.strokeStyle = "#00f2fe";
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15; ctx.shadowColor = "#00f2fe";
+            ctx.beginPath(); ctx.moveTo(0, 260); ctx.lineTo(800, 260); ctx.stroke();
+
+            // Draw Player with Glow
+            ctx.fillStyle = playerGrad;
+            ctx.shadowBlur = 20; ctx.shadowColor = "#00f2fe";
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // Draw Obstacles with Red Glow
+            ctx.fillStyle = obsGrad;
+            ctx.shadowBlur = 15; ctx.shadowColor = "#ff0844";
+            obstacles.forEach(obs => { ctx.fillRect(obs.x, obs.y, obs.w, obs.h); });
+
+            // Draw Explosion Particles
+            particles.forEach(p => {
+                ctx.fillStyle = `rgba(255, 8, 68, ${p.alpha})`;
+                ctx.shadowBlur = 0;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+
+            // Reset shadow before drawing text (ताकि टेक्स्ट धुंधला न हो)
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 18px Arial";
+            ctx.fillText("SCORE: " + score, 20, 35);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Jump Controls (For both Mobile Touch and PC Spacebar)
+        function jump() { if (player.grounded) { player.dy = player.jumpPower; player.grounded = false; } }
+        window.addEventListener("keydown", (e) => { if (e.code === "Space") jump(); });
+        window.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); }, { passive: false });
+
+        gameLoop();
+    </script>
+</body>
+</html>
