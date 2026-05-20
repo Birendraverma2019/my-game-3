@@ -1,52 +1,54 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cyber Runner - High Graphics</title>
+    <title>Neon Flappy - High Graphics</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #0a0a12; text-align: center; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; color: white; }
-        canvas { display: block; margin: 20px auto; border-radius: 12px; box-shadow: 0 0 30px rgba(0, 242, 254, 0.3); max-width: 95%; }
-        h1 { font-size: 24px; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 2px; color: #00f2fe; text-shadow: 0 0 10px #00f2fe; }
-        p { font-size: 14px; margin: 0; color: #8a8a9e; }
+        body { margin: 0; background: #080710; text-align: center; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; color: white; }
+        canvas { display: block; margin: 20px auto; border-radius: 15px; box-shadow: 0 0 35px rgba(255, 0, 128, 0.3); max-width: 95%; background: #0f0e17; }
+        h1 { font-size: 24px; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 2px; color: #ff007f; text-shadow: 0 0 10px #ff007f; }
+        p { font-size: 14px; margin: 0; color: #a0a0b8; }
     </style>
 </head>
 <body>
-    <h1>CYBER RUNNER</h1>
-    <p>Tap anywhere to Jump. Smooth 60 FPS.</p>
-    <canvas id="gameCanvas" width="800" height="300"></canvas>
+    <h1>NEON FLAPPY</h1>
+    <p>Tap anywhere to Fly. Smooth 60 FPS.</p>
+    <canvas id="flappyCanvas" width="400" height="500"></canvas>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
+        const canvas = document.getElementById("flappyCanvas");
         const ctx = canvas.getContext("2d");
 
         let score = 0;
+        let highScore = 0;
         let gameActive = true;
-        let speed = 6;
 
-        // Player with Neon Trail
-        let player = { x: 80, y: 220, w: 35, h: 35, dy: 0, jumpPower: -12, gravity: 0.6, grounded: false };
-        
-        // Obstacles & Particles
-        let obstacles = [];
+        // Bird Settings (Neon Glow Bird)
+        let bird = { x: 80, y: 200, size: 14, gravity: 0.4, velocity: 0, jump: -7 };
+
+        // Pipes Array
+        let pipes = [];
+        let pipeWidth = 55;
+        let pipeGap = 140; // स्पेस जहाँ से बर्ड निकलेगी
+        let pipeSpeed = 3;
+        let frameCount = 0;
+
+        // Particles for Background Stars & Explosion
+        let stars = [];
         let particles = [];
 
-        // Creating Beautiful Neon Gradients
-        const playerGrad = ctx.createLinearGradient(0, 0, 800, 0);
-        playerGrad.addColorStop(0, '#00f2fe');
-        playerGrad.addColorStop(1, '#4facfe');
+        // Generate Background Stars for depth
+        for(let i=0; i<30; i++) {
+            stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 2 });
+        }
 
-        const obsGrad = ctx.createLinearGradient(0, 0, 0, 300);
-        obsGrad.addColorStop(0, '#ff0844');
-        obsGrad.addColorStop(1, '#ffb199');
-
-        // Particle Effect Generator (फूटने वाले शानदार इफेक्ट्स के लिए)
-        function createParticles(x, y, color) {
-            for (let i = 0; i < 15; i++) {
+        function createExplosion(x, y) {
+            for (let i = 0; i < 20; i++) {
                 particles.push({
                     x: x, y: y,
                     vx: (Math.random() - 0.5) * 8,
                     vy: (Math.random() - 0.5) * 8,
-                    size: Math.random() * 4 + 2,
+                    size: Math.random() * 4 + 1,
                     alpha: 1
                 });
             }
@@ -55,42 +57,50 @@
         function update() {
             if (!gameActive) return;
 
-            // Physics (स्मूथ जंप के लिए)
-            player.dy += player.gravity;
-            player.y += player.dy;
-            if (player.y >= 220) {
-                player.y = 220;
-                player.dy = 0;
-                player.grounded = true;
+            frameCount++;
+
+            // Bird Physics
+            bird.velocity += bird.gravity;
+            bird.y += bird.velocity;
+
+            // Ceiling and Floor Collision
+            if (bird.y + bird.size >= canvas.height || bird.y - bird.size <= 0) {
+                gameOver();
             }
 
-            // Speed increment over time
-            speed += 0.002;
-
-            // Spawn Obstacles
-            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < 800 - (Math.random() * 300 + 250)) {
-                let height = Math.random() * 35 + 25;
-                obstacles.push({ x: 800, y: 265 - height, w: 25, h: height });
+            // Spawn Pipes
+            if (frameCount % 100 === 0) {
+                let minHeight = 50;
+                let maxHeight = canvas.height - pipeGap - minHeight;
+                let topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+                pipes.push({ x: canvas.width, top: topHeight, passed: false });
             }
 
-            // Obstacle Movement & Collision
-            obstacles.forEach((obs, index) => {
-                obs.x -= speed;
-                if (obs.x + obs.w < 0) {
-                    obstacles.splice(index, 1);
-                    score += 10;
+            // Move and Check Pipes
+            pipes.forEach((pipe, index) => {
+                pipe.x -= pipeSpeed;
+
+                // Collision Detection
+                if (bird.x + bird.size > pipe.x && bird.x - bird.size < pipe.x + pipeWidth) {
+                    if (bird.y - bird.size < pipe.top || bird.y + bird.size > pipe.top + pipeGap) {
+                        gameOver();
+                    }
                 }
 
-                // Smooth Collision Box Check
-                if (player.x < obs.x + obs.w && player.x + player.w > obs.x &&
-                    player.y < obs.y + obs.h && player.y + player.h > obs.y) {
-                    gameActive = false;
-                    createParticles(player.x + 17, player.y + 17, '#ff0844');
-                    setTimeout(() => { alert("💥 CRASHED! Score: " + score); location.reload(); }, 100);
+                // Score Increment
+                if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
+                    score++;
+                    pipe.passed = true;
+                    if(score % 5 === 0) pipeSpeed += 0.5; // धीरे-धीरे स्पीड बढ़ेगी
+                }
+
+                // Remove offscreen pipes
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.splice(index, 1);
                 }
             });
 
-            // Update Particles
+            // Update Explosion Particles
             particles.forEach((p, index) => {
                 p.x += p.vx; p.y += p.vy; p.alpha -= 0.02;
                 if (p.alpha <= 0) particles.splice(index, 1);
@@ -100,41 +110,60 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Background Grid (साइबरपंक लुक के लिए)
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
-            ctx.lineWidth = 1;
-            for (let i = 0; i < canvas.width; i += 40) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
-            }
+            // Draw Stars Background
+            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            stars.forEach(star => ctx.fillRect(star.x, star.y, star.size, star.size));
 
-            // Draw Ground Neon Line
-            ctx.strokeStyle = "#00f2fe";
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 15; ctx.shadowColor = "#00f2fe";
-            ctx.beginPath(); ctx.moveTo(0, 260); ctx.lineTo(800, 260); ctx.stroke();
+            // Draw Neon Pipes
+            pipes.forEach(pipe => {
+                // Top Pipe
+                let topGrad = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipeWidth, 0);
+                topGrad.addColorStop(0, '#00f2fe'); topGrad.addColorStop(1, '#4facfe');
+                ctx.fillStyle = topGrad;
+                ctx.shadowBlur = 15; ctx.shadowColor = "#00f2fe";
+                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
 
-            // Draw Player with Glow
-            ctx.fillStyle = playerGrad;
-            ctx.shadowBlur = 20; ctx.shadowColor = "#00f2fe";
-            ctx.fillRect(player.x, player.y, player.w, player.h);
+                // Bottom Pipe
+                let bottomGrad = ctx.createLinearGradient(pipe.x, pipe.top + pipeGap, pipe.x + pipeWidth, 0);
+                bottomGrad.addColorStop(0, '#00f2fe'); bottomGrad.addColorStop(1, '#4facfe');
+                ctx.fillStyle = bottomGrad;
+                ctx.fillRect(pipe.x, pipe.top + pipeGap, pipeWidth, canvas.height - (pipe.top + pipeGap));
+            });
 
-            // Draw Obstacles with Red Glow
-            ctx.fillStyle = obsGrad;
-            ctx.shadowBlur = 15; ctx.shadowColor = "#ff0844";
-            obstacles.forEach(obs => { ctx.fillRect(obs.x, obs.y, obs.w, obs.h); });
+            // Draw Bird with Pink Glow
+            ctx.fillStyle = "#ff007f";
+            ctx.shadowBlur = 20; ctx.shadowColor = "#ff007f";
+            ctx.beginPath();
+            ctx.arc(bird.x, bird.y, bird.size, 0, Math.PI * 2);
+            ctx.fill();
 
-            // Draw Explosion Particles
+            // Draw Particles
             particles.forEach(p => {
-                ctx.fillStyle = `rgba(255, 8, 68, ${p.alpha})`;
+                ctx.fillStyle = `rgba(255, 0, 127, ${p.alpha})`;
                 ctx.shadowBlur = 0;
                 ctx.fillRect(p.x, p.y, p.size, p.size);
             });
 
-            // Reset shadow before drawing text (ताकि टेक्स्ट धुंधला न हो)
+            // Score Dashboard (No blur)
             ctx.shadowBlur = 0;
             ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 18px Arial";
-            ctx.fillText("SCORE: " + score, 20, 35);
+            ctx.font = "bold 20px Arial";
+            ctx.fillText("SCORE: " + score, 20, 40);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            createExplosion(bird.x, bird.y);
+            setTimeout(() => {
+                alert("🎮 Game Over!\nYour Score: " + score);
+                resetGame();
+            }, 150);
+        }
+
+        function resetGame() {
+            bird.y = 200; bird.velocity = 0;
+            pipes = []; score = 0; pipeSpeed = 3; frameCount = 0;
+            gameActive = true;
         }
 
         function gameLoop() {
@@ -143,10 +172,15 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Jump Controls (For both Mobile Touch and PC Spacebar)
-        function jump() { if (player.grounded) { player.dy = player.jumpPower; player.grounded = false; } }
-        window.addEventListener("keydown", (e) => { if (e.code === "Space") jump(); });
-        window.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); }, { passive: false });
+        // Controls for Mobile Touch and PC Spacebar
+        function flappyJump() {
+            if (gameActive) {
+                bird.velocity = bird.jump;
+            }
+        }
+
+        window.addEventListener("keydown", (e) => { if (e.code === "Space") flappyJump(); });
+        window.addEventListener("touchstart", (e) => { e.preventDefault(); flappyJump(); }, { passive: false });
 
         gameLoop();
     </script>
